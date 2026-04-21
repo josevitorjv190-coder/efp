@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Flight Planner</title>
+</head>
+<body>
+
+<h2>Login / Cadastro</h2>
+<input id="email" placeholder="Email">
+<input id="senha" type="password" placeholder="Senha">
+<button onclick="cadastrar()">Cadastrar</button>
+<button onclick="login()">Login</button>
+
+<hr>
+
+<h2>Salvar Rota</h2>
+<input id="rota" placeholder="Ex: SBPA-SBGR">
+<button onclick="salvarRota()">Salvar</button>
+
+<hr>
+
+<h2>Rotas (tempo real)</h2>
+<ul id="lista"></ul>
+
+<hr>
+
+<h2>Usuários Online</h2>
+<ul id="online"></ul>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, addDoc, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "SUA_API_KEY",
+  authDomain: "SEU_AUTH_DOMAIN",
+  projectId: "SEU_PROJECT_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+window.cadastrar = async () => {
+  try {
+    const email = emailInput.value;
+    const senha = senhaInput.value;
+    await createUserWithEmailAndPassword(auth, email, senha);
+    alert("Usuário criado!");
+  } catch (e) {
+    console.error(e);
+    alert(e.message);
+  }
+};
+
+window.login = async () => {
+  try {
+    const email = emailInput.value;
+    const senha = senhaInput.value;
+    await signInWithEmailAndPassword(auth, email, senha);
+    alert("Logado!");
+  } catch (e) {
+    console.error(e);
+    alert(e.message);
+  }
+};
+
+window.salvarRota = async () => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Você precisa logar!");
+      return;
+    }
+
+    const rota = document.getElementById("rota").value;
+
+    await addDoc(collection(db, "rotas"), {
+      userId: user.uid,
+      rota: rota,
+      createdAt: new Date()
+    });
+
+    console.log("Rota salva!");
+  } catch (e) {
+    console.error("Erro ao salvar:", e);
+  }
+};
+
+onSnapshot(collection(db, "rotas"), (snapshot) => {
+  const lista = document.getElementById("lista");
+  lista.innerHTML = "";
+
+  snapshot.forEach(doc => {
+    const li = document.createElement("li");
+    li.textContent = doc.data().rota + " (" + doc.data().userId + ")";
+    lista.appendChild(li);
+  });
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    await setDoc(doc(db, "online", user.uid), {
+      online: true,
+      lastSeen: new Date()
+    });
+
+    window.addEventListener("beforeunload", async () => {
+      await deleteDoc(doc(db, "online", user.uid));
+    });
+  }
+});
+
+onSnapshot(collection(db, "online"), (snapshot) => {
+  const lista = document.getElementById("online");
+  lista.innerHTML = "";
+
+  snapshot.forEach(doc => {
+    const li = document.createElement("li");
+    li.textContent = doc.id;
+    lista.appendChild(li);
+  });
+});
+
+const emailInput = document.getElementById("email");
+const senhaInput = document.getElementById("senha");
+
+</script>
+
+</body>
+</html>
